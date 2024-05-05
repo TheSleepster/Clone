@@ -1,0 +1,17 @@
+{
+	"identifier": "Biome_demo_level",
+	"uniqueIdentifer": "a2c54220-66b0-11ec-9cd7-8fe822b5bd24",
+	"x": -1,
+	"y": -1,
+	"width": 472,
+	"height": 352,
+	"bgColor": "#000000",
+	"neighbourLevels": [],
+	"customFields": {
+		"biome": "Snow"
+	},
+	"layers": [
+		"IntGrid.png"
+	],
+	"entities" : {}
+}
