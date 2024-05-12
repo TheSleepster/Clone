@@ -3,10 +3,8 @@
 #include <cstdlib>
 #include <cstdint>
 #include <stdio.h>
-#include <string.h>
 #include <math.h>
 #include <time.h>
-#include <assert.h>
 #include <raylib.h>
 #include <raymath.h>
 #include <rlgl.h>
@@ -32,18 +30,8 @@ typedef Vector2 vec2;
 typedef Vector3 vec3;
 typedef Vector4 vec4;
 
-#define WINDOW_WIDTH 640
-#define WINDOW_HEIGHT 480
-
-
-inline Texture2D 
-CreateTextureFromFilepath(const char *Filepath) 
-{
-    Image Image = LoadImage(Filepath);
-    Texture2D SpriteTexture = LoadTextureFromImage(Image);
-
-    return(SpriteTexture);
-}
+#define WINDOW_WIDTH 1280
+#define WINDOW_HEIGHT 720
 
 struct vec2i 
 {
