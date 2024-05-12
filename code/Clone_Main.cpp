@@ -8,11 +8,18 @@
 //
 // And yes I know Block Comments exist. Fuck you.
 
-enum AnimationType 
+enum AnimationState 
 {
     IDLE,
     WALKING,
     JUMPING,
+};
+
+enum EntityType 
+{
+    PLAYER,
+    ENEMY,
+    MAPOBJECT,
 };
 
 // TODO : Check if adding these into an array rather than initializing them as so
@@ -28,22 +35,48 @@ enum AnimationType
 // Animation *Animations;
 // Animations[0] = HurtAnimation
 
-struct IdleAnimation
+struct Animation 
 {
     int StartingFrame;
     int EndingFrame;
     int CurrentFrame;
     int FrameTime;
     int FrameDelay;
+};    
+
+struct IdleAnimation : public Animation {};
+struct WalkingAnimation : public Animation {};
+
+struct EntityFlags 
+{
+    bool IsMoving;
+    bool Flipped;
+    bool IsOnGround;
 };
 
-struct WalkingAnimation
+struct Entity 
 {
-    int StartingFrame;
-    int EndingFrame;
+    EntityFlags Flags;
+
+    Texture2D Sprite;
+    Rectangle SrcRect;
+    Rectangle DstRect;
+
+    EntityType EntityType;
+    AnimationState AnimationState;
+
+    IdleAnimation IdleAnimation;
+    WalkingAnimation WalkingAnimation;
+
+    int SpriteFrames;
     int CurrentFrame;
-    int FrameTime;
-    int FrameDelay;
+    int WalkingDelay;
+    int32 FrameTime;
+    
+    real32 MovementSpeed;
+    real32 Rotation;
+    real32 Scale;
+    vec2 Pos, Vel;
 };
 
 struct State 
@@ -55,20 +88,17 @@ struct State
     
     struct Entity 
     {
+        EntityFlags Flags;
+
         Texture2D Sprite;
         Rectangle SrcRect;
         Rectangle DstRect;
-        bool Flipped;
-        bool IsGrounded;
+        int SpriteFrames;
 
-        AnimationType AnimationType;
+        EntityType EntityType;
+        AnimationState AnimationState;
         IdleAnimation IdleAnimation;
         WalkingAnimation WalkingAnimation;
-
-        int SpriteFrames;
-        int CurrentFrame;
-        int WalkingDelay;
-        int32 FrameTime;
         
         real32 MovementSpeed;
         real32 Rotation;
@@ -113,9 +143,10 @@ InitGameData(State *State)
     State->Textures[0] = LoadTexture("../data/res/textures/PlayerCharacter.png");
     State->Player.Sprite = State->Textures[0]; 
 
-    State->Player.AnimationType = IDLE;
+    State->Player.EntityType = PLAYER;
+    State->Player.AnimationState = IDLE;
     State->Player.SpriteFrames = 9;
-    State->Player.Flipped = false;
+    State->Player.Flags.Flipped = false;
 
     State->Player.IdleAnimation.StartingFrame = 0;
     State->Player.IdleAnimation.EndingFrame = 1;
@@ -146,25 +177,25 @@ HandlePlayerInput(State *State)
     if(IsKeyDown(KEY_W)) 
     {
         State->Player.Vel.y = -State->Player.MovementSpeed;
-        State->Player.AnimationType = WALKING;
+        State->Player.AnimationState = WALKING;
     }
     else if(IsKeyDown(KEY_S)) 
     {
         State->Player.Vel.y = State->Player.MovementSpeed;
-        State->Player.AnimationType = WALKING;
+        State->Player.AnimationState = WALKING;
     }
 
     if(IsKeyDown(KEY_A)) 
     {
         State->Player.Vel.x = -State->Player.MovementSpeed;
-        State->Player.AnimationType = WALKING;
-        State->Player.Flipped = true;
+        State->Player.AnimationState = WALKING;
+        State->Player.Flags.Flipped = true;
     }
     else if(IsKeyDown(KEY_D)) 
     {
         State->Player.Vel.x = State->Player.MovementSpeed;
-        State->Player.AnimationType = WALKING;
-        State->Player.Flipped = false;
+        State->Player.AnimationState = WALKING;
+        State->Player.Flags.Flipped = false;
     }
 
     if(IsKeyUp(KEY_W) && IsKeyUp(KEY_S)) 
@@ -179,7 +210,7 @@ HandlePlayerInput(State *State)
 
     if(IsKeyUp(KEY_W) & IsKeyUp(KEY_S) & IsKeyUp(KEY_A) & IsKeyUp(KEY_D)) 
     {
-        State->Player.AnimationType = IDLE;
+        State->Player.AnimationState = IDLE;
     }
 
     State->Player.Pos.x += State->Player.Vel.x * GetFrameTime();
@@ -194,78 +225,106 @@ HandlePlayerInput(State *State)
     };
 }
 
-// TODO : Generalize this if we can 
-//        (If It isn't already? Idk if it is tbh)
-internal void
-AnimateSprite(State *State)
+void 
+PlayAnimation(Entity *Entity) 
 {
-    switch(State->Player.AnimationType) 
+    switch(Entity->EntityType) 
     {
-        case IDLE: 
+        case PLAYER: 
         {
-            ++State->Player.IdleAnimation.FrameTime;
-            if(State->Player.IdleAnimation.FrameTime >= State->Player.IdleAnimation.FrameDelay) 
+            switch(Entity->AnimationState) 
             {
-                ++State->Player.IdleAnimation.CurrentFrame;
-                State->Player.IdleAnimation.FrameTime = 0;
-            }
+                case IDLE: 
+                {
+                    ++Entity->IdleAnimation.FrameTime;
+                    if(Entity->IdleAnimation.FrameTime >= Entity->IdleAnimation.FrameDelay) 
+                    {
+                        ++Entity->IdleAnimation.CurrentFrame;
+                        Entity->IdleAnimation.FrameTime = 0;
+                    }
 
-            if(State->Player.IdleAnimation.CurrentFrame > State->Player.IdleAnimation.EndingFrame) 
-            {
-                State->Player.IdleAnimation.CurrentFrame = State->Player.IdleAnimation.StartingFrame;
-            }
-            
-            State->Player.SrcRect = 
-            {
-                real32((State->Player.Sprite.width / State->Player.SpriteFrames) * State->Player.IdleAnimation.CurrentFrame),
-                0,
-                real32(State->Player.Sprite.width / State->Player.SpriteFrames),
-                real32(State->Player.Sprite.height),
-            };
-            // TODO : Gross, Maybe find a better way to reset different animation's frames
-            State->Player.WalkingAnimation.CurrentFrame = State->Player.WalkingAnimation.StartingFrame;
-        }break;
-        case WALKING: 
-        {   
-            ++State->Player.WalkingAnimation.FrameTime;
-            if(State->Player.WalkingAnimation.FrameTime > State->Player.WalkingAnimation.FrameDelay) 
-            {
-                ++State->Player.WalkingAnimation.CurrentFrame;
-                State->Player.WalkingAnimation.FrameTime = 0;
-            }
+                    if(Entity->IdleAnimation.CurrentFrame > Entity->IdleAnimation.EndingFrame) 
+                    {
+                        Entity->IdleAnimation.CurrentFrame = Entity->IdleAnimation.StartingFrame;
+                    }
+                    
+                    Entity->SrcRect = 
+                    {
+                        real32((Entity->Sprite.width / Entity->SpriteFrames) * Entity->IdleAnimation.CurrentFrame),
+                        0,
+                        real32(Entity->Sprite.width / Entity->SpriteFrames),
+                        real32(Entity->Sprite.height),
+                    };
+                    // TODO : Gross, Maybe find a better way to reset different animation's frames
+                    Entity->WalkingAnimation.CurrentFrame = Entity->WalkingAnimation.StartingFrame;
+                }break;
+                case WALKING:
+                {
+                    ++Entity->WalkingAnimation.FrameTime;
+                    if(Entity->WalkingAnimation.FrameTime > Entity->WalkingAnimation.FrameDelay) 
+                    {
+                        ++Entity->WalkingAnimation.CurrentFrame;
+                        Entity->WalkingAnimation.FrameTime = 0;
+                    }
 
-            if(State->Player.WalkingAnimation.CurrentFrame >= State->Player.WalkingAnimation.EndingFrame) 
-            {
-                State->Player.WalkingAnimation.CurrentFrame = State->Player.WalkingAnimation.StartingFrame;
+                    if(Entity->WalkingAnimation.CurrentFrame >= Entity->WalkingAnimation.EndingFrame) 
+                    {
+                        Entity->WalkingAnimation.CurrentFrame = Entity->WalkingAnimation.StartingFrame;
+                    }
+                    
+                    Entity->SrcRect = 
+                    {
+                        real32((Entity->Sprite.width / Entity->SpriteFrames) * Entity->WalkingAnimation.CurrentFrame),
+                        0,
+                        real32(Entity->Sprite.width / Entity->SpriteFrames),
+                        real32(Entity->Sprite.height),
+                    };
+                    // TODO : Same as above here, perhaps there's a better way to reset 
+                    Entity->IdleAnimation.CurrentFrame = Entity->IdleAnimation.StartingFrame;
+                }break;
+                case JUMPING:
+                {
+                }break;
             }
-            
-            State->Player.SrcRect = 
+        }break;
+        case ENEMY: 
+        {
+            switch(Entity->AnimationState)
             {
-                real32((State->Player.Sprite.width / State->Player.SpriteFrames) * State->Player.WalkingAnimation.CurrentFrame),
-                0,
-                real32(State->Player.Sprite.width / State->Player.SpriteFrames),
-                real32(State->Player.Sprite.height),
-            };
-            // TODO : Same as above here, perhaps there's a better way to reset 
-            State->Player.IdleAnimation.CurrentFrame = State->Player.IdleAnimation.StartingFrame;
-        }break;
-        case JUMPING: 
+                case IDLE: 
+                {
+                }break;
+                case WALKING:
+                {
+                }break;
+                default: 
+                {
+                }break;
+            }
+        }
+        case MAPOBJECT: 
         {
-        }break;
-        default: 
-        {
+            switch(Entity->AnimationState) 
+            {
+                case IDLE: 
+                {
+                }break;
+                default: 
+                {
+                }break;
+            }
         }break;
     }
 
-    if(State->Player.Flipped) 
+    if(Entity->Flags.Flipped) 
     {
-        State->Player.SrcRect.width = -State->Player.SrcRect.width;
-        State->Player.DstRect.width = -State->Player.SrcRect.width;
+        Entity->SrcRect.width = -Entity->SrcRect.width;
+        Entity->DstRect.width = -Entity->SrcRect.width;
     }
     else 
     {
-        State->Player.SrcRect.width = State->Player.SrcRect.width;
-        State->Player.DstRect.width = State->Player.SrcRect.width;
+        Entity->SrcRect.width = Entity->SrcRect.width;
+        Entity->DstRect.width = Entity->SrcRect.width;
     }
 }
 
@@ -297,7 +356,10 @@ int main()
         DrawFPS(10, 10);
         HandlePlayerInput(&State);
         HandleCamera(&State);
-        AnimateSprite(&State);
+
+        State.Player.AnimationState = WALKING;
+        State.Player.EntityType = PLAYER;
+        PlayAnimation(&State.Player);
 
         DrawTexturePro
         (
