@@ -1,200 +1,41 @@
 #include "Clone_Main.h"
 
-//#define DEBUG
-
-// NOTE : Perhaps we could decide which entity type something is through a simple enum?
-// For example, Set the enum to PLAYER to create a PLAYER Entity?
-// Perhaps set it to GOBLIN to create a GOBLIN entity?
-//
-// And yes I know Block Comments exist. Fuck you.
-
-enum AnimationState 
+internal Animation
+CreateAnimation(int Init, int End, int Current, int Time, int Delay) 
 {
-    IDLE,
-    WALKING,
-    JUMPING,
-};
+    Animation Animation;
 
-enum EntityType 
-{
-    PLAYER,
-    ENEMY,
-    MAPOBJECT,
-};
+    Animation.StartingFrame = Init;
+    Animation.EndingFrame = End;
+    Animation.CurrentFrame = Current;
+    Animation.FrameTime = Time;
+    Animation.FrameDelay = Delay;
 
-// TODO : Check if adding these into an array rather than initializing them as so
-// would be more effective when indexing for an animation:
-//
-// struct Animation {};
-//
-// struct HurtAnimation : public Aniamtion 
-// {
-//      ...DATA
-// };
-//
-// Animation *Animations;
-// Animations[0] = HurtAnimation
-
-struct Animation 
-{
-    int StartingFrame;
-    int EndingFrame;
-    int CurrentFrame;
-    int FrameTime;
-    int FrameDelay;
-};    
-
-struct IdleAnimation : public Animation {};
-struct WalkingAnimation : public Animation {};
-
-struct EntityFlags 
-{
-    bool IsMoving;
-    bool Flipped;
-    bool IsOnGround;
-};
-
-struct Entity 
-{
-    EntityFlags Flags;
-
-    Texture2D Sprite;
-    Rectangle SrcRect;
-    Rectangle DstRect;
-
-    EntityType EntityType;
-    AnimationState AnimationState;
-
-    IdleAnimation IdleAnimation;
-    WalkingAnimation WalkingAnimation;
-
-    int SpriteFrames;
-    int CurrentFrame;
-    int WalkingDelay;
-    int32 FrameTime;
-    
-    real32 MovementSpeed;
-    real32 Rotation;
-    real32 Scale;
-    vec2 Pos, Vel;
-};
-
-struct State 
-{
-    Camera2D Camera;
-
-    int TextureCount;
-    Texture2D *Textures;
-    
-    struct Entity 
-    {
-        EntityFlags Flags;
-
-        Texture2D Sprite;
-        Rectangle SrcRect;
-        Rectangle DstRect;
-        int SpriteFrames;
-
-        EntityType EntityType;
-        AnimationState AnimationState;
-        IdleAnimation IdleAnimation;
-        WalkingAnimation WalkingAnimation;
-        
-        real32 MovementSpeed;
-        real32 Rotation;
-        real32 Scale;
-        vec2 Pos, Vel;
-    }Player;
-
-    struct Input 
-    {
-        struct Up 
-        {
-            bool Pressed;
-            bool Down;
-        }Up;
-
-        struct Down 
-        {
-            bool Pressed;
-            bool Down;
-        }Down;
-
-        struct Left
-        {
-            bool Pressed;
-            bool Down;
-        }Left;
-
-        struct Right
-        {
-            bool Pressed;
-            bool Down;
-        }Right;
-    }Input;
-};
-
-internal State 
-InitGameData(State *State) 
-{
-    State->Textures = {};
-    State->TextureCount = 1;
-    State->Textures = (Texture2D *)malloc(int(sizeof(Texture2D)) * State->TextureCount);
-    State->Textures[0] = LoadTexture("../data/res/textures/PlayerCharacter.png");
-    State->Player.Sprite = State->Textures[0]; 
-
-    State->Player.EntityType = PLAYER;
-    State->Player.AnimationState = IDLE;
-    State->Player.SpriteFrames = 9;
-    State->Player.Flags.Flipped = false;
-
-    State->Player.IdleAnimation.StartingFrame = 0;
-    State->Player.IdleAnimation.EndingFrame = 1;
-    State->Player.IdleAnimation.CurrentFrame = 0;
-    State->Player.IdleAnimation.FrameDelay = 100;
-    State->Player.IdleAnimation.FrameTime = 0;
-
-    State->Player.WalkingAnimation.StartingFrame = 4;
-    State->Player.WalkingAnimation.EndingFrame = 8;
-    State->Player.WalkingAnimation.CurrentFrame = 4;
-    State->Player.WalkingAnimation.FrameDelay = 20;
-    State->Player.WalkingAnimation.FrameTime = 0;
-
-    State->Player.Pos = {200, 300};
-    State->Player.Vel = {0, 0};
-    State->Player.Rotation = 0;
-    State->Player.Scale = 0;
-    State->Player.MovementSpeed = 50.0f;
-
-    return(*State);
+    return(Animation);
 }
 
 internal void 
 HandlePlayerInput(State *State) 
 {
-// TODO : Replace this with the State->Input struct's functionality
+    // TODO : Replace this with the State->Input struct's functionality
 
     if(IsKeyDown(KEY_W)) 
     {
         State->Player.Vel.y = -State->Player.MovementSpeed;
-        State->Player.AnimationState = WALKING;
     }
     else if(IsKeyDown(KEY_S)) 
     {
         State->Player.Vel.y = State->Player.MovementSpeed;
-        State->Player.AnimationState = WALKING;
     }
 
     if(IsKeyDown(KEY_A)) 
     {
         State->Player.Vel.x = -State->Player.MovementSpeed;
-        State->Player.AnimationState = WALKING;
         State->Player.Flags.Flipped = true;
     }
     else if(IsKeyDown(KEY_D)) 
     {
         State->Player.Vel.x = State->Player.MovementSpeed;
-        State->Player.AnimationState = WALKING;
         State->Player.Flags.Flipped = false;
     }
 
@@ -331,11 +172,113 @@ PlayAnimation(Entity *Entity)
 internal void 
 HandleCamera(State *State) 
 {
-    const int PixelHeightPerScreen = 256;
+    const int PixelHeightPerScreen = 360;
 
-    State->Camera.zoom = real32(GetScreenHeight() / PixelHeightPerScreen);
+    State->Camera.zoom = real32(GetScreenWidth() / PixelHeightPerScreen);
     State->Camera.offset = {real32(GetScreenWidth() / 2), real32(GetScreenHeight() / 2)};
     State->Camera.target = {State->Player.Pos.x, State->Player.Pos.y};
+    State->Camera.rotation = 0;
+}
+
+internal void 
+HandleAnimationStateMachine(Entity *Entity) 
+{   
+    if(Vec2EqualsS(Entity->Vel, 0)) 
+    {
+        Entity->Flags.IsMoving = false;
+        Entity->AnimationState = IDLE;
+    }
+    else 
+    {
+        Entity->Flags.IsMoving = true;
+        Entity->AnimationState = WALKING;
+    }
+
+    PlayAnimation(Entity);
+}
+
+const int MAPSCALE = 2;
+const int TILESIZE = 16;
+
+internal LevelGridData
+LoadLevelData(const char *Filepath) 
+{
+    LevelGridData Grid = {};    
+    FILE *File = fopen(Filepath, "rt");
+    if(File == nullptr) 
+    {
+        printf("Failed to load the file: %s\n", Filepath);
+    }
+
+    return(Grid);
+}
+
+internal Level
+CreateLevel(State *State) 
+{
+    Level Level;
+
+    Level.LevelImage = State->Textures[1];
+    Level.LevelGridData = 
+        LoadLevelData("../data/res/mapdata/Test/simplified/AutoLayers_advanced_demo/IntGrid_layer.csv");
+    Level.SrcRect = 
+        {0, 0, real32(Level.LevelImage.width), real32(Level.LevelImage.height)};
+    Level.DstRect = 
+        {0, 0, real32(Level.SrcRect.width * MAPSCALE), real32(Level.SrcRect.height * MAPSCALE)};
+
+    Level.IsLoaded = true;
+    Level.Index = 1;
+    Level.EntityCount = 0;
+    Level.Entities = (Entity *)malloc(int(sizeof(Entity)) * Level.EntityCount);
+
+    return(Level);
+}
+
+internal void 
+DrawMap(Level *Level) 
+{
+    DrawTexturePro
+    (
+        Level->LevelImage,
+        Level->SrcRect,
+        Level->DstRect,
+        {0, 0},
+        0,
+        WHITE 
+    );
+}
+
+// FIXME : Terrible.
+
+internal State 
+InitGameState(State *State) 
+{
+    State->Textures = {};
+    State->TextureCount = 2;
+    State->Textures = (Texture2D *)malloc(int(sizeof(Texture2D)) * State->TextureCount);
+    State->Textures[0] = 
+        LoadTexture("../data/res/textures/PlayerCharacter.png");
+    State->Textures[1] = 
+        LoadTexture("../data/res/mapdata/Test/simplified/AutoLayers_advanced_demo/_composite.png");
+    State->CurrentLevel = CreateLevel(State);
+
+    State->Player.Pos = {0, 0};
+    State->Player.Vel = {0, 0};
+    State->Player.Rotation = 0;
+    State->Player.Scale = 0;
+    State->Player.MovementSpeed = 100.0f;
+    State->Player.SpriteFrames = 9;
+
+    State->Player.Sprite = State->Textures[0]; 
+    State->Player.EntityType = PLAYER;
+    State->Player.AnimationState = IDLE;
+    State->Player.Flags.Flipped = false;
+    State->Player.Flags.IsMoving = false;
+
+    State->Player.IdleAnimation = CreateAnimation(0, 1, 0, 100, 96);
+    State->Player.WalkingAnimation = CreateAnimation(4, 8, 4, 20, 24);
+    
+    return(*State);
 }
 
 int main() 
@@ -345,21 +288,23 @@ int main()
     SetTargetFPS(144);
 
     State State;    
-    InitGameData(&State);
-    
+    InitGameState(&State);
+    printf("Level: \n%s", State.CurrentLevel.LevelGridData.LevelGrid);
+
+
     while(!WindowShouldClose())
     {
         BeginDrawing();
         BeginMode2D(State.Camera);
-        ClearBackground(BLUE);
+        ClearBackground(BLUE); 
 
-        DrawFPS(10, 10);
-        HandlePlayerInput(&State);
         HandleCamera(&State);
+        HandlePlayerInput(&State);
+        HandleAnimationStateMachine((Entity *)(&State.Player));
+        DrawFPS(0, 0);
 
-        State.Player.AnimationState = WALKING;
-        State.Player.EntityType = PLAYER;
-        PlayAnimation(&State.Player);
+        // TODO : Move this somewhere else, Just don't want it drawing every frame, my poor gpu would die.
+        DrawMap(&State.CurrentLevel);
 
         DrawTexturePro
         (
@@ -374,9 +319,9 @@ int main()
 #ifdef DEBUG
         DrawRectangleV
         (
-             State.Player.Pos, 
-             {real32(State.Player.Sprite.width / State.Player.SpriteFrames), real32(State.Player.Sprite.height)}, 
-             RED
+            State.Player.Pos, 
+            {real32(State.Player.Sprite.width / State.Player.SpriteFrames), real32(State.Player.Sprite.height)}, 
+            RED
         );
 #endif
         EndMode2D();
