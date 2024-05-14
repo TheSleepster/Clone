@@ -162,7 +162,7 @@ struct Entity
 struct LevelGridData 
 {
     vec2i LevelSize;
-    char *LevelGrid;
+    char **LevelGrid;
 };
 
 struct Level 

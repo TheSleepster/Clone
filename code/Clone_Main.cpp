@@ -204,13 +204,55 @@ internal LevelGridData
 LoadLevelData(const char *Filepath) 
 {
     LevelGridData Grid = {};    
+
     FILE *File = fopen(Filepath, "rt");
     if(File == nullptr) 
     {
         printf("Failed to load the file: %s\n", Filepath);
     }
+    
+    int RowCount = 0;
+    char Buffer[1024];
+    while(fgets(Buffer, 1024, File) != NULL) 
+    {
+        ++RowCount;
+    }
+    fseek(File, 0, SEEK_SET);
 
-    return(Grid);
+    int ColumnCount = 0;
+    fgets(Buffer, 1024, File);
+
+    for (int i = 0; Buffer[i] != '\0'; ++i) 
+    {
+        if (Buffer[i] != '\n') 
+        {
+            ++ColumnCount;
+        }
+    }
+    ++ColumnCount;
+
+    Grid.LevelGrid = (char **)malloc(RowCount * sizeof(char *));
+    for(int i = 0; i < RowCount; ++i) 
+    {
+        Grid.LevelGrid[i] = (char *)malloc(ColumnCount * sizeof(char));
+        memset(Grid.LevelGrid[i], '\0', ColumnCount);
+    }
+
+    for(int i = 0; i < RowCount; ++i) 
+    {
+        fgets(Buffer, 1024, File);
+        int k = 0;
+        for(int j = 0; Buffer[j] != '\0'; ++j) 
+        {
+            Grid.LevelGrid[i][k++] = Buffer[j];
+        }
+    }
+    fclose(File);
+
+    Grid.LevelSize = {RowCount, ColumnCount};
+
+    printf("C: %i\nR: %i", Grid.LevelSize.x, Grid.LevelSize.y);
+    return Grid;
 }
 
 internal Level
@@ -289,8 +331,6 @@ int main()
 
     State State;    
     InitGameState(&State);
-    printf("Level: \n%s", State.CurrentLevel.LevelGridData.LevelGrid);
-
 
     while(!WindowShouldClose())
     {
