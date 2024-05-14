@@ -172,7 +172,7 @@ PlayAnimation(Entity *Entity)
 internal void 
 HandleCamera(State *State) 
 {
-    const int PixelHeightPerScreen = 360;
+    const int PixelHeightPerScreen = 720;
 
     State->Camera.zoom = real32(GetScreenWidth() / PixelHeightPerScreen);
     State->Camera.offset = {real32(GetScreenWidth() / 2), real32(GetScreenHeight() / 2)};
@@ -278,7 +278,43 @@ CreateLevel(State *State)
 
 internal void 
 DrawMap(Level *Level) 
-{
+{   
+    int CommaOffset = 0;
+
+    for(int Row = 0; Row < Level->LevelGridData.LevelSize.x; ++Row) 
+    {
+        for(int Column = 0; Column < Level->LevelGridData.LevelSize.y; ++Column) 
+        {
+            if(Level->LevelGridData.LevelGrid[Row][Column] == ',') 
+            {
+                ++CommaOffset;
+            }
+
+            int TileX = (Column - CommaOffset) * TILESIZE;
+            int TileY = (Row + 1) * TILESIZE;
+            switch(Level->LevelGridData.LevelGrid[Row][Column]) 
+            {
+                case '0': 
+                {
+                }break;
+                case '1': 
+                {
+                    DrawRectangle
+                    (
+                        TileX, 
+                        TileY,
+                        TILESIZE,
+                        TILESIZE,
+                        RED
+                    );
+                }break;
+            }
+        }
+        CommaOffset = 0;
+    }
+
+    Color TestColor = {255, 255, 255, 100};
+
     DrawTexturePro
     (
         Level->LevelImage,
@@ -286,7 +322,7 @@ DrawMap(Level *Level)
         Level->DstRect,
         {0, 0},
         0,
-        WHITE 
+        TestColor
     );
 }
 
@@ -341,6 +377,7 @@ int main()
         HandleCamera(&State);
         HandlePlayerInput(&State);
         HandleAnimationStateMachine((Entity *)(&State.Player));
+        DrawMap(&State.CurrentLevel);
         DrawFPS(0, 0);
 
         // TODO : Move this somewhere else, Just don't want it drawing every frame, my poor gpu would die.
