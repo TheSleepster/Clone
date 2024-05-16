@@ -1,6 +1,5 @@
 #include "Clone_Main.h"
 #include "Clone_Data.h"
-#include "Clone_Physics.h"
 
 #define DEBUG
 
@@ -226,19 +225,20 @@ LoadLevelData(const char *Filepath)
     }
     
     int RowCount = 0;
+    int ColumnCount = 0;
     char Buffer[1024] = {};
-    while(fgets(Buffer, 1024, File) != NULL) 
+    if(fgets(Buffer, 1024, File) != NULL) 
     {
-        ++RowCount;
+        for(int i = 0; Buffer[i] != '\0'; ++i) 
+        {
+            if(Buffer[i] != ',') 
+            {
+                ++ColumnCount;
+            }
+            ++RowCount;
+        }
     }
     fseek(File, 0, SEEK_SET);
-
-    int ColumnCount = 0;
-    fgets(Buffer, 1024, File);
-    for (int i = 0; Buffer[i] != '\0'; ++i) 
-    {
-            ++ColumnCount;
-    }
 
     Grid.CollisionData = (char **)malloc(RowCount * sizeof(char *));
     for(int i = 0; i < RowCount; ++i) 
@@ -246,11 +246,16 @@ LoadLevelData(const char *Filepath)
         Grid.CollisionData[i] = (char *)malloc(ColumnCount * sizeof(char));
         memset(Grid.CollisionData[i], '\0', ColumnCount);
 
-        fgets(Buffer, 1024, File);
-        int k = 0;
-        for(int j = 0; Buffer[j] != '\0'; ++j) 
+        if(fgets(Buffer, 1024, File) != NULL) 
         {
-            Grid.CollisionData[i][k++] = Buffer[j];
+            int k = 0;
+            for(int j = 0; Buffer[j] != '\0'; ++j) 
+            {
+                if(Buffer[j] != ',' && Buffer[j] != '\n')
+                {
+                    Grid.CollisionData[i][k++] = Buffer[j];
+                }
+            }
         }
     }
     fclose(File);
@@ -290,11 +295,6 @@ DrawLevel(Level *Level)
     {
         for(int Column = 0; Column < Level->CollisionMap.MapSize.y; ++Column) 
         {
-            if(Level->CollisionMap.CollisionData[Row][Column] == ',') 
-            {
-                ++CommaOffset;
-            }
-
             int TileX = (Column - CommaOffset) * TILESIZE;
             int TileY = (Row) * TILESIZE;
             Color TestColor = {255, 0, 0, 50};
@@ -357,7 +357,6 @@ DrawLevel(Level *Level)
                 }break;
             }
         }
-        CommaOffset = 0;
     }
 
     Color MapTest = {255, 255, 255, 100};
@@ -405,6 +404,12 @@ InitGameState(State *State)
     State->Player.WalkingAnimation = CreateAnimation(4, 8, 4, 20, 24);
     
     return(*State);
+}
+
+internal void 
+CollisionManager(State *State) 
+{
+    
 }
 
 int main() 
