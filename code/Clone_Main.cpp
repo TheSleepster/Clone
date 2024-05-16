@@ -104,6 +104,8 @@ PlayAnimation(Entity *Entity)
                         real32(Entity->TextureData.Sprite.width / Entity->TextureData.SpriteLengthInFrames),
                         real32(Entity->TextureData.Sprite.height),
                     };
+                    // TODO : See if we can put this anywhere neater.
+                    Entity->Animations[WALKING].CurrentFrame = Entity->Animations[WALKING].StartingFrame;
                 }break;
                 case WALKING:
                 {
@@ -126,6 +128,7 @@ PlayAnimation(Entity *Entity)
                         real32(Entity->TextureData.Sprite.width / Entity->TextureData.SpriteLengthInFrames),
                         real32(Entity->TextureData.Sprite.height),
                     };
+                    Entity->Animations[IDLE].CurrentFrame = Entity->Animations[IDLE].StartingFrame;
                 }break;
                 case JUMPING:
                 {
@@ -159,8 +162,6 @@ PlayAnimation(Entity *Entity)
                 }break;
             }
         }break;
-        Entity->Animations[IDLE].CurrentFrame = Entity->Animations[IDLE].StartingFrame;
-        Entity->Animations[WALKING].CurrentFrame = Entity->Animations[WALKING].StartingFrame;
     }
 
     if(Entity->Flags.Flipped) 
