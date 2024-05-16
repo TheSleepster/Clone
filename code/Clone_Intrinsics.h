@@ -1,42 +1,42 @@
-#pragma once
-#include "Clone_Main.h"
+#pragma once 
 
-struct v2i 
-{
-    int x;
-    int y;
-};
+#include <cstdlib>
+#include <cstdint>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <time.h>
+#include <raylib.h>
+#include <raymath.h>
+#include <rlgl.h>
 
-inline bool 
-Vec2EqualsS(v2 A, real32 B) 
-{
-    bool Result;
-    if(A.x == B && A.y == B) 
-    {
-        Result = true;
-    }
-    else 
-    {
-        Result = false;
-    }
-    return(Result);
-}
+#define global_variable static
+#define local_persist static
+#define internal static
 
-inline bool 
-Vec2LessThanS(v2 A, real32 B) 
-{
-    bool Result;
-    if(A.x >= B) 
-    {
-        Result = true;
-    }
-    else 
-    {
-        Result = false;
-    }
-    return(Result);
-}
+typedef uint8_t  uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uin64;
 
+typedef int8_t  int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+
+typedef float real32;
+typedef double real64;
+
+typedef Vector2 v2;
+typedef Vector3 v3;
+typedef Vector4 v4;
+
+#define WINDOW_WIDTH 1280
+#define WINDOW_HEIGHT 720
+
+#include "Clone_Math.h"
+
+// NOTE : yes I know Block Comments exist. Fuck you.
 struct Input 
 {
     struct Up 
@@ -79,22 +79,12 @@ struct Input
 // NOTE : Perhaps we could decide which entity type something is through a simple enum?
 // For example, Set the enum to PLAYER to create a PLAYER Entity?
 // Perhaps set it to GOBLIN to create a GOBLIN entity?
-//
-// And yes I know Block Comments exist. Fuck you.
 
 enum AnimationState 
 {
     IDLE,
     WALKING,
     JUMPING,
-};
-
-// TODO : Potentially create subtypes that indicate what kind of ENEMY or MAPOPJECT something is
-enum EntityType 
-{
-    PLAYER,
-    ENEMY,
-    MAPOBJECT,
 };
 
 struct Animation 
@@ -106,6 +96,37 @@ struct Animation
     int FrameDelay;
 };    
 
+// NOTE : Fuck you, everything is a box for now.
+enum PhysicsBodyShape 
+{
+    BOX,
+};
+
+// TODO : Collision and Mask Layers.
+
+struct PhysicsBody2D 
+{
+    int BodyID;
+    v2 Pos;
+    v2 Vel;
+    real32 Rotation;
+    bool Grounded;
+    bool Gravitic;
+    bool Enabled;
+
+    // NOTE : Temp
+    Rectangle Hitbox;
+    PhysicsBodyShape PhysicsBodyShape;
+};
+
+// TODO : Potentially create subtypes that indicate what kind of ENEMY or MAPOPJECT something is
+enum EntityType 
+{
+    PLAYER,
+    ENEMY,
+    MAPOBJECT,
+};
+
 struct EntityFlags 
 {
     bool IsMoving;
@@ -113,26 +134,35 @@ struct EntityFlags
     bool IsOnGround;
 };
 
-struct Entity 
+struct TextureData 
 {
-    EntityFlags Flags;
-
+    int SpriteLengthInFrames;
     Texture2D Sprite;
     Rectangle SrcRect;
     Rectangle DstRect;
     Rectangle Hitbox;
-    int SpriteFrames;
+};
 
-    EntityType EntityType;
+struct Entity 
+{
+    EntityFlags Flags;
     AnimationState AnimationState;
+    EntityType EntityType;
+    TextureData TextureData;
+    PhysicsBody2D PhysicsBody;
+    Animation *Animations;
 
+    // TODO : Create an array of Animations, the size of this array will differ between entity archetypes
+    //        but that's why we have substructs of entities. We can itterate through entities of the same type efficiently
+    int AnimationCount;
+    real32 MovementSpeed;
+    real32 Scale;
+};
+
+struct Player : public Entity 
+{
     Animation IdleAnimation;
     Animation WalkingAnimation;
-    
-    real32 MovementSpeed;
-    real32 Rotation;
-    real32 Scale;
-    v2 Pos, Vel;
 };
 
 // NOTE : This way currently doesn't let me place a destructable wall as part of the tileset since the IMAGE
@@ -170,6 +200,7 @@ struct State
     Level CurrentLevel;
     
     Camera2D Camera;    
-    Entity Player;
     Input Input;
+
+    Player Player;
 };

@@ -1,8 +1,6 @@
-#include "Clone_Main.h"
-#include "Clone_Data.h"
-
+#include "Clone_Intrinsics.h"
+#include "Clone_Math.h"
 #define DEBUG
-
 internal Animation
 CreateAnimation(int Init, int End, int Current, int Time, int Delay) 
 {
@@ -24,32 +22,32 @@ HandlePlayerInput(State *State)
 
     if(IsKeyDown(KEY_W)) 
     {
-        State->Player.Vel.y = -State->Player.MovementSpeed;
+        State->Player.PhysicsBody.Vel.y = -State->Player.MovementSpeed;
     }
     else if(IsKeyDown(KEY_S)) 
     {
-        State->Player.Vel.y = State->Player.MovementSpeed;
+        State->Player.PhysicsBody.Vel.y = State->Player.MovementSpeed;
     }
 
     if(IsKeyDown(KEY_A)) 
     {
-        State->Player.Vel.x = -State->Player.MovementSpeed;
+        State->Player.PhysicsBody.Vel.x = -State->Player.MovementSpeed;
         State->Player.Flags.Flipped = true;
     }
     else if(IsKeyDown(KEY_D)) 
     {
-        State->Player.Vel.x = State->Player.MovementSpeed;
+        State->Player.PhysicsBody.Vel.x = State->Player.MovementSpeed;
         State->Player.Flags.Flipped = false;
     }
 
     if(IsKeyUp(KEY_W) && IsKeyUp(KEY_S)) 
     {
-        State->Player.Vel.y = 0;
+        State->Player.PhysicsBody.Vel.y = 0;
     }
 
     if(IsKeyUp(KEY_A) && IsKeyUp(KEY_D)) 
     {
-        State->Player.Vel.x = 0;
+        State->Player.PhysicsBody.Vel.x = 0;
     }
 
     if(IsKeyUp(KEY_W) & IsKeyUp(KEY_S) & IsKeyUp(KEY_A) & IsKeyUp(KEY_D)) 
@@ -57,20 +55,20 @@ HandlePlayerInput(State *State)
         State->Player.AnimationState = IDLE;
     }
 
-    Vector2ClampValue(State->Player.Vel, -State->Player.MovementSpeed, State->Player.MovementSpeed);
-    State->Player.Pos.x += State->Player.Vel.x * GetFrameTime();
-    State->Player.Pos.y += State->Player.Vel.y * GetFrameTime();
+    Vector2ClampValue(State->Player.PhysicsBody.Vel, -State->Player.MovementSpeed, State->Player.MovementSpeed);
+    State->Player.PhysicsBody.Pos.x += State->Player.PhysicsBody.Vel.x * GetFrameTime();
+    State->Player.PhysicsBody.Pos.y += State->Player.PhysicsBody.Vel.y * GetFrameTime();
 
 
     // TODO : Find a better place for this
-    State->Player.Hitbox = {State->Player.Pos.x + 2, State->Player.Pos.y  - real32(State->Player.Sprite.height / 2), 10, 21};
+    State->Player.PhysicsBody.Hitbox = {State->Player.PhysicsBody.Pos.x + 2, State->Player.PhysicsBody.Pos.y  - real32(State->Player.TextureData.Sprite.height / 2), 10, 21};
 
-    State->Player.DstRect = 
+    State->Player.TextureData.DstRect = 
     {   
-        State->Player.Pos.x, 
-        State->Player.Pos.y, 
-        State->Player.SrcRect.width,
-        State->Player.SrcRect.height
+        State->Player.PhysicsBody.Pos.x, 
+        State->Player.PhysicsBody.Pos.y, 
+        State->Player.TextureData.SrcRect.width,
+        State->Player.TextureData.SrcRect.height
     };
 }
 
@@ -87,51 +85,47 @@ PlayAnimation(Entity *Entity)
             {
                 case IDLE: 
                 {
-                    ++Entity->IdleAnimation.FrameTime;
-                    if(Entity->IdleAnimation.FrameTime >= Entity->IdleAnimation.FrameDelay) 
+                    ++Entity->Animations[IDLE].FrameTime;
+                    if(Entity->Animations[IDLE].FrameTime >= Entity->Animations[IDLE].FrameDelay) 
                     {
-                        ++Entity->IdleAnimation.CurrentFrame;
-                        Entity->IdleAnimation.FrameTime = 0;
+                        ++Entity->Animations[IDLE].CurrentFrame;
+                        Entity->Animations[IDLE].FrameTime = 0;
                     }
 
-                    if(Entity->IdleAnimation.CurrentFrame > Entity->IdleAnimation.EndingFrame) 
+                    if(Entity->Animations[IDLE].CurrentFrame > Entity->Animations[IDLE].EndingFrame) 
                     {
-                        Entity->IdleAnimation.CurrentFrame = Entity->IdleAnimation.StartingFrame;
+                        Entity->Animations[IDLE].CurrentFrame = Entity->Animations[IDLE].StartingFrame;
                     }
                     
-                    Entity->SrcRect = 
+                    Entity->TextureData.SrcRect = 
                     {
-                        real32((Entity->Sprite.width / Entity->SpriteFrames) * Entity->IdleAnimation.CurrentFrame),
+                        real32((Entity->TextureData.Sprite.width / Entity->TextureData.SpriteLengthInFrames) * Entity->Animations[IDLE].CurrentFrame),
                         0,
-                        real32(Entity->Sprite.width / Entity->SpriteFrames),
-                        real32(Entity->Sprite.height),
+                        real32(Entity->TextureData.Sprite.width / Entity->TextureData.SpriteLengthInFrames),
+                        real32(Entity->TextureData.Sprite.height),
                     };
-                    // TODO : Gross, Maybe find a better way to reset different animation's frames
-                    Entity->WalkingAnimation.CurrentFrame = Entity->WalkingAnimation.StartingFrame;
                 }break;
                 case WALKING:
                 {
-                    ++Entity->WalkingAnimation.FrameTime;
-                    if(Entity->WalkingAnimation.FrameTime > Entity->WalkingAnimation.FrameDelay) 
+                    ++Entity->Animations[WALKING].FrameTime;
+                    if(Entity->Animations[WALKING].FrameTime > Entity->Animations[WALKING].FrameDelay) 
                     {
-                        ++Entity->WalkingAnimation.CurrentFrame;
-                        Entity->WalkingAnimation.FrameTime = 0;
+                        ++Entity->Animations[WALKING].CurrentFrame;
+                        Entity->Animations[WALKING].FrameTime = 0;
                     }
 
-                    if(Entity->WalkingAnimation.CurrentFrame >= Entity->WalkingAnimation.EndingFrame) 
+                    if(Entity->Animations[WALKING].CurrentFrame >= Entity->Animations[WALKING].EndingFrame) 
                     {
-                        Entity->WalkingAnimation.CurrentFrame = Entity->WalkingAnimation.StartingFrame;
+                        Entity->Animations[WALKING].CurrentFrame = Entity->Animations[WALKING].StartingFrame;
                     }
                     
-                    Entity->SrcRect = 
+                    Entity->TextureData.SrcRect = 
                     {
-                        real32((Entity->Sprite.width / Entity->SpriteFrames) * Entity->WalkingAnimation.CurrentFrame),
+                        real32((Entity->TextureData.Sprite.width / Entity->TextureData.SpriteLengthInFrames) * Entity->Animations[WALKING].CurrentFrame),
                         0,
-                        real32(Entity->Sprite.width / Entity->SpriteFrames),
-                        real32(Entity->Sprite.height),
+                        real32(Entity->TextureData.Sprite.width / Entity->TextureData.SpriteLengthInFrames),
+                        real32(Entity->TextureData.Sprite.height),
                     };
-                    // TODO : Same as above here, perhaps there's a better way to reset 
-                    Entity->IdleAnimation.CurrentFrame = Entity->IdleAnimation.StartingFrame;
                 }break;
                 case JUMPING:
                 {
@@ -165,35 +159,41 @@ PlayAnimation(Entity *Entity)
                 }break;
             }
         }break;
+        Entity->Animations[IDLE].CurrentFrame = Entity->Animations[IDLE].StartingFrame;
+        Entity->Animations[WALKING].CurrentFrame = Entity->Animations[WALKING].StartingFrame;
     }
 
     if(Entity->Flags.Flipped) 
     {
-        Entity->SrcRect.width = -Entity->SrcRect.width;
-        Entity->DstRect.width = -Entity->SrcRect.width;
+        Entity->TextureData.SrcRect.width = -Entity->TextureData.SrcRect.width;
+        Entity->TextureData.DstRect.width = -Entity->TextureData.SrcRect.width;
     }
     else 
     {
-        Entity->SrcRect.width = Entity->SrcRect.width;
-        Entity->DstRect.width = Entity->SrcRect.width;
+        Entity->TextureData.SrcRect.width = Entity->TextureData.SrcRect.width;
+        Entity->TextureData.DstRect.width = Entity->TextureData.SrcRect.width;
     }
 }
 
 internal void 
 HandleCamera(State *State) 
 {
+#ifdef DEBUG
     const int PixelHeightPerScreen = 720;
+#else 
+    const int PixelHeightPerScreen = 360;
+#endif
 
     State->Camera.zoom = real32(GetScreenWidth() / PixelHeightPerScreen);
     State->Camera.offset = {real32(GetScreenWidth() / 2), real32(GetScreenHeight() / 2)};
-    State->Camera.target = {State->Player.Pos.x, State->Player.Pos.y};
+    State->Camera.target = {State->Player.PhysicsBody.Pos.x, State->Player.PhysicsBody.Pos.y};
     State->Camera.rotation = 0;
 }
 
 internal void 
 HandleAnimationStateMachine(Entity *Entity) 
 {   
-    if(Vec2EqualsS(Entity->Vel, 0)) 
+    if(Vec2EqualsS(Entity->PhysicsBody.Vel, 0)) 
     {
         Entity->Flags.IsMoving = false;
         Entity->AnimationState = IDLE;
@@ -206,15 +206,14 @@ HandleAnimationStateMachine(Entity *Entity)
 
     PlayAnimation(Entity);
 }
-
+// FIXME : Weird stutter sometimes? Look into performance profiling
 const int MAPSCALE = 2;
 const int TILESIZE = 16;
-
-// FIXME : Weird stutter sometimes? Look into performance profiling
 
 internal CollisionMap
 LoadLevelData(const char *Filepath) 
 {
+
     CollisionMap Grid = {};    
 
     FILE *File = fopen(Filepath, "rt");
@@ -290,12 +289,12 @@ CreateLevel(State *State, int TextureIndex, const char *Filepath)
 internal void 
 DrawLevel(Level *Level) 
 {   
-    int CommaOffset = 0;
+#ifdef DEBUG
     for(int Row = 0; Row < Level->CollisionMap.MapSize.x; ++Row) 
     {
         for(int Column = 0; Column < Level->CollisionMap.MapSize.y; ++Column) 
         {
-            int TileX = (Column - CommaOffset) * TILESIZE;
+            int TileX = (Column) * TILESIZE;
             int TileY = (Row) * TILESIZE;
             Color TestColor = {255, 0, 0, 50};
             switch(Level->CollisionMap.CollisionData[Row][Column]) 
@@ -358,6 +357,7 @@ DrawLevel(Level *Level)
             }
         }
     }
+#endif
 
     Color MapTest = {255, 255, 255, 100};
     DrawTexturePro
@@ -371,7 +371,8 @@ DrawLevel(Level *Level)
     );
 }
 
-// FIXME : Terrible.
+// TODO : Terrible. Perhaps find a way to split these into more managable functions. Specifically for the Player.
+//        That way the State can be modified without modifying the player
 
 internal State 
 InitGameState(State *State) 
@@ -386,22 +387,24 @@ InitGameState(State *State)
     State->CurrentLevel = 
         CreateLevel(State, 1, "../data/res/mapdata/Test/simplified/AutoLayers_advanced_demo/IntGrid_layer.csv");
 
-    State->Player.Pos = {0, 0};
-    State->Player.Vel = {0, 0};
-    State->Player.Rotation = 0;
-    State->Player.Scale = 0;
-    State->Gravity = 2000.0f;
+    State->Player.PhysicsBody.Pos = {0, 0};
+    State->Player.PhysicsBody.Vel = {0, 0};
+    State->Player.PhysicsBody.Rotation = 0;
     State->Player.MovementSpeed = 100.0f;
-    State->Player.SpriteFrames = 9;
+    State->Player.TextureData.SpriteLengthInFrames = 9;
+    State->Gravity = 2000.0f;
+    State->Player.Scale = 0;
 
-    State->Player.Sprite = State->Textures[0];
+    State->Player.TextureData.Sprite = State->Textures[0];
     State->Player.EntityType = PLAYER;
     State->Player.AnimationState = IDLE;
     State->Player.Flags.Flipped = false;
     State->Player.Flags.IsMoving = false;
 
-    State->Player.IdleAnimation = CreateAnimation(0, 1, 0, 100, 96);
-    State->Player.WalkingAnimation = CreateAnimation(4, 8, 4, 20, 24);
+    State->Player.AnimationCount = 2;
+    State->Player.Animations = (Animation *)malloc(sizeof(Animation) * State->Player.AnimationCount);
+    State->Player.Animations[IDLE] = CreateAnimation(0, 1, 0, 100, 96);
+    State->Player.Animations[WALKING] = CreateAnimation(4, 8, 4, 20, 24);
     
     return(*State);
 }
@@ -409,7 +412,7 @@ InitGameState(State *State)
 internal void 
 CollisionManager(State *State) 
 {
-    
+
 }
 
 int main() 
@@ -433,22 +436,22 @@ int main()
         HandleAnimationStateMachine((Entity *)(&State.Player));
         DrawFPS(0, 0);
 
-        // TODO : Move this somewhere else, Just don't want it drawing every frame, my poor gpu would die.
+        // TODO : Move this somewhere else, I don't want it drawing every frame, my poor gpu is going to die.
         DrawLevel(&State.CurrentLevel);
 
         DrawTexturePro
         (
-            State.Player.Sprite, 
-            State.Player.SrcRect, 
-            State.Player.DstRect, 
-            {0, State.Player.DstRect.height}, 
-            State.Player.Rotation, 
+            State.Player.TextureData.Sprite, 
+            State.Player.TextureData.SrcRect, 
+            State.Player.TextureData.DstRect, 
+            {0, State.Player.TextureData.DstRect.height}, 
+            State.Player.PhysicsBody.Rotation, 
             WHITE
         );
 
 #ifdef DEBUG
         Color TestColor = {255, 0, 0, 80};
-        DrawRectanglePro(State.Player.Hitbox, {0, 8}, 0, TestColor);
+        DrawRectanglePro(State.Player.PhysicsBody.Hitbox, {0, 8}, 0, TestColor);
 #endif
         EndMode2D();
         EndDrawing();
