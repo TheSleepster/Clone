@@ -1,4 +1,8 @@
 #include "Clone_Main.h"
+#include "Clone_Data.h"
+#include "Clone_Physics.h"
+
+#define DEBUG
 
 internal Animation
 CreateAnimation(int Init, int End, int Current, int Time, int Delay) 
@@ -54,8 +58,13 @@ HandlePlayerInput(State *State)
         State->Player.AnimationState = IDLE;
     }
 
+    Vector2ClampValue(State->Player.Vel, -State->Player.MovementSpeed, State->Player.MovementSpeed);
     State->Player.Pos.x += State->Player.Vel.x * GetFrameTime();
     State->Player.Pos.y += State->Player.Vel.y * GetFrameTime();
+
+
+    // TODO : Find a better place for this
+    State->Player.Hitbox = {State->Player.Pos.x + 2, State->Player.Pos.y  - real32(State->Player.Sprite.height / 2), 10, 21};
 
     State->Player.DstRect = 
     {   
@@ -65,6 +74,8 @@ HandlePlayerInput(State *State)
         State->Player.SrcRect.height
     };
 }
+
+// TODO : Animation is currently not Framerate independant
 
 void 
 PlayAnimation(Entity *Entity) 
@@ -200,19 +211,22 @@ HandleAnimationStateMachine(Entity *Entity)
 const int MAPSCALE = 2;
 const int TILESIZE = 16;
 
-internal LevelGridData
+// FIXME : Weird stutter sometimes? Look into performance profiling
+
+internal CollisionMap
 LoadLevelData(const char *Filepath) 
 {
-    LevelGridData Grid = {};    
+    CollisionMap Grid = {};    
 
     FILE *File = fopen(Filepath, "rt");
     if(File == nullptr) 
     {
         printf("Failed to load the file: %s\n", Filepath);
+        return(Grid);
     }
     
     int RowCount = 0;
-    char Buffer[1024];
+    char Buffer[1024] = {};
     while(fgets(Buffer, 1024, File) != NULL) 
     {
         ++RowCount;
@@ -221,48 +235,38 @@ LoadLevelData(const char *Filepath)
 
     int ColumnCount = 0;
     fgets(Buffer, 1024, File);
-
     for (int i = 0; Buffer[i] != '\0'; ++i) 
     {
-        if (Buffer[i] != '\n') 
-        {
             ++ColumnCount;
-        }
-    }
-    ++ColumnCount;
-
-    Grid.LevelGrid = (char **)malloc(RowCount * sizeof(char *));
-    for(int i = 0; i < RowCount; ++i) 
-    {
-        Grid.LevelGrid[i] = (char *)malloc(ColumnCount * sizeof(char));
-        memset(Grid.LevelGrid[i], '\0', ColumnCount);
     }
 
+    Grid.CollisionData = (char **)malloc(RowCount * sizeof(char *));
     for(int i = 0; i < RowCount; ++i) 
     {
+        Grid.CollisionData[i] = (char *)malloc(ColumnCount * sizeof(char));
+        memset(Grid.CollisionData[i], '\0', ColumnCount);
+
         fgets(Buffer, 1024, File);
         int k = 0;
         for(int j = 0; Buffer[j] != '\0'; ++j) 
         {
-            Grid.LevelGrid[i][k++] = Buffer[j];
+            Grid.CollisionData[i][k++] = Buffer[j];
         }
     }
     fclose(File);
 
-    Grid.LevelSize = {RowCount, ColumnCount};
-
-    printf("C: %i\nR: %i", Grid.LevelSize.x, Grid.LevelSize.y);
+    Grid.MapSize = {RowCount, ColumnCount};
     return Grid;
 }
 
 internal Level
-CreateLevel(State *State) 
+CreateLevel(State *State, int TextureIndex, const char *Filepath) 
 {
     Level Level;
 
-    Level.LevelImage = State->Textures[1];
-    Level.LevelGridData = 
-        LoadLevelData("../data/res/mapdata/Test/simplified/AutoLayers_advanced_demo/IntGrid_layer.csv");
+    Level.LevelImage = State->Textures[TextureIndex];
+    Level.CollisionMap = 
+        LoadLevelData(Filepath);
     Level.SrcRect = 
         {0, 0, real32(Level.LevelImage.width), real32(Level.LevelImage.height)};
     Level.DstRect = 
@@ -276,28 +280,27 @@ CreateLevel(State *State)
     return(Level);
 }
 
+// TODO : Move the map related functions and data into a "MapManager.cpp"
+// TODO : Look into a solution to only update this when needed, not every frame
 internal void 
-DrawMap(Level *Level) 
+DrawLevel(Level *Level) 
 {   
     int CommaOffset = 0;
-
-    for(int Row = 0; Row < Level->LevelGridData.LevelSize.x; ++Row) 
+    for(int Row = 0; Row < Level->CollisionMap.MapSize.x; ++Row) 
     {
-        for(int Column = 0; Column < Level->LevelGridData.LevelSize.y; ++Column) 
+        for(int Column = 0; Column < Level->CollisionMap.MapSize.y; ++Column) 
         {
-            if(Level->LevelGridData.LevelGrid[Row][Column] == ',') 
+            if(Level->CollisionMap.CollisionData[Row][Column] == ',') 
             {
                 ++CommaOffset;
             }
 
             int TileX = (Column - CommaOffset) * TILESIZE;
-            int TileY = (Row + 1) * TILESIZE;
-            switch(Level->LevelGridData.LevelGrid[Row][Column]) 
+            int TileY = (Row) * TILESIZE;
+            Color TestColor = {255, 0, 0, 50};
+            switch(Level->CollisionMap.CollisionData[Row][Column]) 
             {
                 case '0': 
-                {
-                }break;
-                case '1': 
                 {
                     DrawRectangle
                     (
@@ -308,13 +311,56 @@ DrawMap(Level *Level)
                         RED
                     );
                 }break;
+                case '1': 
+                {
+                    DrawRectangle
+                    (
+                        TileX, 
+                        TileY,
+                        TILESIZE,
+                        TILESIZE,
+                        ORANGE
+                    );
+                }break;
+                case '2': 
+                {
+                    DrawRectangle
+                    (
+                        TileX, 
+                        TileY,
+                        TILESIZE,
+                        TILESIZE,
+                        GREEN
+                    );
+                }break;
+                case '3': 
+                {
+                    DrawRectangle
+                    (
+                        TileX, 
+                        TileY,
+                        TILESIZE,
+                        TILESIZE,
+                        PINK
+                    );
+                }break;
+                case '4': 
+                {
+                    DrawRectangle
+                    (
+                        TileX, 
+                        TileY,
+                        TILESIZE,
+                        TILESIZE,
+                        PURPLE
+                    );
+                }break;
             }
         }
         CommaOffset = 0;
     }
 
-    Color TestColor = {255, 255, 255, 100};
-
+    Color MapTest = {255, 255, 255, 100};
     DrawTexturePro
     (
         Level->LevelImage,
@@ -322,7 +368,7 @@ DrawMap(Level *Level)
         Level->DstRect,
         {0, 0},
         0,
-        TestColor
+        MapTest
     );
 }
 
@@ -338,16 +384,18 @@ InitGameState(State *State)
         LoadTexture("../data/res/textures/PlayerCharacter.png");
     State->Textures[1] = 
         LoadTexture("../data/res/mapdata/Test/simplified/AutoLayers_advanced_demo/_composite.png");
-    State->CurrentLevel = CreateLevel(State);
+    State->CurrentLevel = 
+        CreateLevel(State, 1, "../data/res/mapdata/Test/simplified/AutoLayers_advanced_demo/IntGrid_layer.csv");
 
     State->Player.Pos = {0, 0};
     State->Player.Vel = {0, 0};
     State->Player.Rotation = 0;
     State->Player.Scale = 0;
+    State->Gravity = 2000.0f;
     State->Player.MovementSpeed = 100.0f;
     State->Player.SpriteFrames = 9;
 
-    State->Player.Sprite = State->Textures[0]; 
+    State->Player.Sprite = State->Textures[0];
     State->Player.EntityType = PLAYER;
     State->Player.AnimationState = IDLE;
     State->Player.Flags.Flipped = false;
@@ -363,7 +411,7 @@ int main()
 {
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Hello, Window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetTargetFPS(144);
+    SetTargetFPS(160);
 
     State State;    
     InitGameState(&State);
@@ -372,34 +420,30 @@ int main()
     {
         BeginDrawing();
         BeginMode2D(State.Camera);
-        ClearBackground(BLUE); 
+        ClearBackground(BLACK); 
 
+        CollisionManager(&State);
         HandleCamera(&State);
         HandlePlayerInput(&State);
         HandleAnimationStateMachine((Entity *)(&State.Player));
-        DrawMap(&State.CurrentLevel);
         DrawFPS(0, 0);
 
         // TODO : Move this somewhere else, Just don't want it drawing every frame, my poor gpu would die.
-        DrawMap(&State.CurrentLevel);
+        DrawLevel(&State.CurrentLevel);
 
         DrawTexturePro
         (
             State.Player.Sprite, 
             State.Player.SrcRect, 
             State.Player.DstRect, 
-            {State.Player.DstRect.width / 2, State.Player.DstRect.height}, 
+            {0, State.Player.DstRect.height}, 
             State.Player.Rotation, 
             WHITE
         );
 
 #ifdef DEBUG
-        DrawRectangleV
-        (
-            State.Player.Pos, 
-            {real32(State.Player.Sprite.width / State.Player.SpriteFrames), real32(State.Player.Sprite.height)}, 
-            RED
-        );
+        Color TestColor = {255, 0, 0, 80};
+        DrawRectanglePro(State.Player.Hitbox, {0, 8}, 0, TestColor);
 #endif
         EndMode2D();
         EndDrawing();
